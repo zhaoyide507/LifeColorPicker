@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>采色生活 · 用色彩记录生活</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <span class="brand-mark" aria-hidden="true"></span>
+    <div class="brand-text">
+      <h1>采色生活</h1>
+      <p>把日常照片，酿成一幅画</p>
+    </div>
+  </div>
+  <div class="topbar-actions">
+    <span id="keyStatus" class="key-status" title="API Key 配置状态"></span>
+    <button id="btnHelp" class="btn ghost" type="button">? 使用说明</button>
+    <button id="btnKeys" class="btn ghost" type="button">⚙ API Key 设置</button>
+  </div>
+</header>
+
+<main class="journey">
+
+  <!-- ═══════════ 01 采集 · 拼图 ═══════════ -->
+  <section class="step" id="step1">
+    <div class="step-head">
+      <span class="step-no">壹</span>
+      <div class="step-title">
+        <h2>采集 · 生活拼图</h2>
+        <p>上传一组生活照片，统一裁为 1:1，织成一张属于你的时光拼图。</p>
+      </div>
+    </div>
+    <div class="step-body">
+      <div class="step-panel">
+        <div class="field">
+          <label>拼图规格 <small>（横向 × 纵向）</small></label>
+          <div class="spec-row" id="specRow">
+            <button class="spec-btn active" data-count="16"  type="button">16 <small>4×4</small></button>
+            <button class="spec-btn" data-count="25"  type="button">25 <small>5×5</small></button>
+            <button class="spec-btn" data-count="36"  type="button">36 <small>9×4</small></button>
+            <button class="spec-btn" data-count="81"  type="button">81 <small>9×9</small></button>
+            <button class="spec-btn" data-count="162" type="button">162 <small>18×9</small></button>
+          </div>
+        </div>
+
+        <div class="dropzone" id="dropzone" tabindex="0">
+          <div class="dz-icon">🖼</div>
+          <p><strong>点击选择</strong>、拖拽照片到此处，或直接 <kbd>Ctrl+V</kbd> 粘贴</p>
+          <p class="dz-sub">支持 JPG / PNG / WebP，可一次多选</p>
+        </div>
+
+        <div class="upload-meta">
+          <span id="countBadge" class="count-badge">已上传 0 / 16</span>
+          <button id="btnClear" class="btn text-danger" type="button">清空</button>
+        </div>
+
+        <div class="thumb-grid" id="thumbGrid"></div>
+        <p class="hint hidden" id="countHint"></p>
+
+        <button id="btnCollage" class="btn primary block" type="button" disabled>生成拼图</button>
+      </div>
+
+      <div class="step-view">
+        <div class="canvas-frame">
+          <canvas id="collageCanvas" class="hidden"></canvas>
+          <div class="placeholder" id="collagePlaceholder">
+            <span class="ph-glyph">▦</span>
+            <span>拼图将在这里生成</span>
+          </div>
+        </div>
+        <div class="view-actions">
+          <span class="gen-note">照片将自动中心裁剪为 1:1</span>
+          <button id="dlCollage" class="btn export hidden" type="button">⬇ 导出拼图</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════ 02 像素化 · 色彩种子 ═══════════ -->
+  <section class="step locked" id="step2">
+    <div class="lock-hint">完成上一步后解锁</div>
+    <div class="step-head">
+      <span class="step-no">贰</span>
+      <div class="step-title">
+        <h2>像素化 · 色彩种子</h2>
+        <p>把拼图压成一粒马赛克"种子"——这一粒里，藏着整段生活的底色。</p>
+      </div>
+    </div>
+    <div class="step-body">
+      <div class="step-panel">
+        <div class="field">
+          <label>像素密度 <small id="densityLabel">（每张照片 → 3×3 色块）</small></label>
+          <input type="range" id="densityRange" min="2" max="6" step="1" value="3">
+        </div>
+        <button id="btnSeed" class="btn primary block" type="button" disabled>生成色彩种子</button>
+      </div>
+      <div class="step-view">
+        <div class="canvas-frame">
+          <canvas id="seedCanvas" class="hidden"></canvas>
+          <div class="placeholder" id="seedPlaceholder">
+            <span class="ph-glyph">▚</span>
+            <span>色彩种子将在这里生成</span>
+          </div>
+        </div>
+        <div class="view-actions">
+          <span class="gen-note">马赛克处理，保留拼图的色彩分布</span>
+          <button id="dlSeed" class="btn export hidden" type="button">⬇ 导出色彩种子</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════ 03 提取 · 色板 ═══════════ -->
+  <section class="step locked" id="step3">
+    <div class="lock-hint">完成上一步后解锁</div>
+    <div class="step-head">
+      <span class="step-no">叁</span>
+      <div class="step-title">
+        <h2>提取 · 生活色板</h2>
+        <p>AI 阅读你的色彩种子，提炼出 7 × 3 的和谐色板——你生活的色谱。</p>
+      </div>
+    </div>
+    <div class="step-body">
+      <div class="step-panel">
+        <p class="panel-desc" id="paletteDesc">调用 <strong>DeepSeek</strong> 模型，从色彩种子中提取 3 组（每组 7 个）十六进制色值。</p>
+        <button id="btnPalette" class="btn primary block" type="button" disabled>✦ AI 提取色板</button>
+        <div class="hex-list hidden" id="hexList"></div>
+      </div>
+      <div class="step-view">
+        <div class="canvas-frame">
+          <canvas id="paletteCanvas" class="hidden"></canvas>
+          <div class="placeholder" id="palettePlaceholder">
+            <span class="ph-glyph">▤</span>
+            <span>色板将在这里生成</span>
+          </div>
+        </div>
+        <div class="view-actions">
+          <span class="gen-note" id="paletteNote">7 × 3 · 三组十六进制色值</span>
+          <button id="dlPalette" class="btn export hidden" type="button">⬇ 导出色板</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════ 04 再生 · 线条种子 ═══════════ -->
+  <section class="step locked" id="step4">
+    <div class="lock-hint">完成上一步后解锁</div>
+    <div class="step-head">
+      <span class="step-no">肆</span>
+      <div class="step-title">
+        <h2>再生 · 线条种子</h2>
+        <p>色板在 AI 手中舒展、流动，长成一幅抽象的"线条种子"。</p>
+      </div>
+    </div>
+    <div class="step-body">
+      <div class="step-panel">
+        <p class="panel-desc">调用图生图模型 <strong>SeedEdit 3.0</strong>，把色板图转化为流动的抽象作品。</p>
+        <button id="btnLineSeed" class="btn primary block" type="button" disabled>✦ 生成线条种子</button>
+        <p class="status-line hidden" id="lineSeedStatus"></p>
+      </div>
+      <div class="step-view">
+        <div class="canvas-frame">
+          <canvas id="lineSeedCanvas" class="hidden"></canvas>
+          <div class="placeholder" id="lineSeedPlaceholder">
+            <span class="ph-glyph">〰</span>
+            <span>线条种子将在这里生成</span>
+          </div>
+          <span class="canvas-tag hidden" id="lineSeedTag">✓ 已校准至色板色</span>
+        </div>
+        <div class="view-actions">
+          <span class="gen-note">AI 生成 · 约 10–40 秒 · 生成后自动校准至色板色</span>
+          <button id="dlLineSeed" class="btn export hidden" type="button">⬇ 导出线条种子</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════ 05 重构 · 记忆成画 ═══════════ -->
+  <section class="step locked" id="step5">
+    <div class="lock-hint">完成上一步后解锁</div>
+    <div class="step-head">
+      <span class="step-no">伍</span>
+      <div class="step-title">
+        <h2>重构 · 记忆成画</h2>
+        <p>线条种子最终长回具象的画面。选一种画风，让这段生活重新成像。</p>
+      </div>
+    </div>
+    <div class="step-body">
+      <div class="step-panel">
+        <div class="field">
+          <label>选择画风</label>
+          <div class="style-row" id="styleRow">
+            <button class="style-btn active" data-style="oil" type="button"><span class="style-emoji">🖌</span>油画</button>
+            <button class="style-btn" data-style="impression" type="button"><span class="style-emoji">🌤</span>印象派</button>
+            <button class="style-btn" data-style="ink" type="button"><span class="style-emoji">🖋</span>水墨风</button>
+            <button class="style-btn" data-style="comic" type="button"><span class="style-emoji">💬</span>漫画风</button>
+          </div>
+        </div>
+        <p class="panel-desc">每次点击，DeepSeek 都会依据你的色板情绪即兴构思一个生活场景，指令各不相同，作品也各不相同；生成比例与第壹步的拼图一致，完成后自动将拼图以 <strong>5%</strong> 透明度叠加其上。</p>
+        <button id="btnRebuild" class="btn primary block" type="button" disabled>✦ 开始重构</button>
+        <div class="prompt-box hidden" id="rebuildPromptBox">
+          <span class="prompt-label">✦ DeepSeek 本次生成的指令</span>
+          <p id="rebuildPromptText"></p>
+        </div>
+        <p class="status-line hidden" id="rebuildStatus"></p>
+      </div>
+      <div class="step-view">
+        <div class="canvas-frame">
+          <canvas id="rebuildBeforeCanvas" class="hidden"></canvas>
+          <canvas id="rebuildAfterCanvas" class="hidden"></canvas>
+          <div class="placeholder" id="rebuildPlaceholder">
+            <span class="ph-glyph">🌄</span>
+            <span>重构图将在这里生成</span>
+          </div>
+          <span class="canvas-tag hidden" id="tagAfter">叠加拼图 5%</span>
+        </div>
+        <div class="view-actions">
+          <div class="tab-toggle hidden" id="rebuildToggle">
+            <button class="toggle-btn active" data-view="before" type="button">AI 原图</button>
+            <button class="toggle-btn" data-view="after" type="button">叠加拼图后</button>
+          </div>
+          <div class="export-group hidden" id="rebuildExports">
+            <button id="dlRebuildBefore" class="btn export" type="button">⬇ 导出原图</button>
+            <button id="dlRebuildAfter" class="btn export" type="button">⬇ 导出叠加图</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+  <!-- ═══════════ 终 · 导出组图 ═══════════ -->
+  <section class="step" id="stepFinal">
+    <div class="step-head">
+      <span class="step-no">终</span>
+      <div class="step-title">
+        <h2>采色 · 生活组图</h2>
+        <p>把这一程的作品合成一张竖排组图，一张图收藏整段生活。</p>
+      </div>
+    </div>
+    <div class="step-body">
+      <div class="step-panel">
+        <p class="panel-desc">按顺序拼接已生成的作品：拼图 → 色彩种子 → 色板 → 线条种子 → 重构图（叠加版）。生成到哪一步就拼几幅；未配置图生图 Key 时仅含前三步。</p>
+        <button id="btnPoster" class="btn primary block" type="button" disabled>组装组图预览</button>
+      </div>
+      <div class="step-view">
+        <div class="canvas-frame">
+          <canvas id="posterCanvas" class="hidden"></canvas>
+          <div class="placeholder" id="posterPlaceholder">
+            <span class="ph-glyph">🧾</span>
+            <span>组图将在这里生成</span>
+          </div>
+        </div>
+        <div class="view-actions">
+          <span class="gen-note">白色画布 · 竖排合图</span>
+          <button id="dlPoster" class="btn export hidden" type="button">⬇ 导出组图</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer class="footer">
+  <p>采色生活 · 用 AI 把日常照片酿成一幅画 ｜ 拼图 → 色彩种子 → 色板 → 线条种子 → 重构</p>
+</footer>
+
+<!-- ═══════════ API Key 面板 ═══════════ -->
+<div class="modal-mask hidden" id="keyModal">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="keyModalTitle">
+    <div class="modal-head">
+      <h3 id="keyModalTitle">API Key 设置</h3>
+      <button class="modal-close" id="btnKeyClose" type="button" aria-label="关闭">✕</button>
+    </div>
+    <p class="modal-desc">Key 仅保存在本浏览器（localStorage），请求由你的浏览器直接发往模型服务商，不会被上传到任何第三方。</p>
+
+    <div class="key-field">
+      <label>DeepSeek API Key <span class="req">*</span></label>
+      <div class="key-input">
+        <input type="password" id="inpDsKey" placeholder="sk-..." autocomplete="off">
+        <button class="peek" data-target="inpDsKey" type="button" title="显示/隐藏">👁</button>
+      </div>
+      <small>用于第叁步色板提取 · <a href="https://platform.deepseek.com/api_keys" target="_blank" rel="noopener">获取 Key ↗</a></small>
+    </div>
+
+    <div class="key-field">
+      <label>火山引擎 AccessKeyID <span class="req">*</span></label>
+      <div class="key-input">
+        <input type="password" id="inpAk" placeholder="AKLT..." autocomplete="off">
+        <button class="peek" data-target="inpAk" type="button" title="显示/隐藏">👁</button>
+      </div>
+    </div>
+
+    <div class="key-field">
+      <label>火山引擎 SecretAccessKey <span class="req">*</span></label>
+      <div class="key-input">
+        <input type="password" id="inpSk" placeholder="SecretAccessKey" autocomplete="off">
+        <button class="peek" data-target="inpSk" type="button" title="显示/隐藏">👁</button>
+      </div>
+      <small>两者配合用于第肆 / 伍步图生图（SeedEdit 3.0，需开通"视觉智能"服务）· <a href="https://console.volcengine.com/iam/keymanage/" target="_blank" rel="noopener">获取密钥 ↗</a></small>
+    </div>
+
+    <div class="modal-actions">
+      <button id="btnKeyClear" class="btn ghost" type="button">清除保存的 Key</button>
+      <button id="btnKeyTest" class="btn ghost" type="button">测试 DeepSeek 连接</button>
+      <button id="btnKeySave" class="btn primary" type="button">保存</button>
+    </div>
+  </div>
+</div>
+
+<div id="toasts" aria-live="polite"></div>
+
+<!-- ═══════════ 使用说明 ═══════════ -->
+<div class="modal-mask hidden" id="helpModal">
+  <div class="modal modal--wide" role="dialog" aria-modal="true" aria-labelledby="helpModalTitle">
+    <div class="modal-head">
+      <h3 id="helpModalTitle">使用说明</h3>
+      <button class="modal-close" id="btnHelpClose" type="button" aria-label="关闭">✕</button>
+    </div>
+    <p class="modal-desc">「采色生活」沿着五步旅程，把一组日常照片酿成一幅画。</p>
+    <ol class="help-list">
+      <li><strong>上传照片</strong> —— 选好规格（16 / 25 / 36 / 81 / 162 张），点击、拖拽或 <kbd>Ctrl+V</kbd> 粘贴上传；</li>
+      <li><strong>生成拼图</strong> —— 照片自动裁为 1:1，织成网格拼图，可导出；</li>
+      <li><strong>像素化</strong> —— 把拼图压成马赛克"色彩种子"，可调整每张照片的像素密度；</li>
+      <li><strong>提取色板</strong> —— 配置了 DeepSeek Key 时由 AI 提取 7×3 色板；未配置时自动使用本地算法；</li>
+      <li><strong>线条种子 & 重构</strong>（需配置火山引擎 AK/SK）—— 色板晕染成流动的抽象画，再按你选的画风重构成具象作品，并自动叠加 5% 拼图；</li>
+      <li><strong>导出组图</strong> —— 任一作品生成后，即可竖排合成一张组图导出。</li>
+    </ol>
+    <div class="help-note">
+      <p>🔑 <strong>关于 Key</strong>：不配置任何 Key 也能完成「上传 → 拼图 → 色彩种子 → 本地色板 → 组图导出」；配置后解锁 AI 色板与第肆 / 伍步。Key 仅保存在本浏览器，请求由浏览器直连模型服务商。</p>
+      <p>💾 已生成的作品会自动保存在本地，刷新页面不丢失；照片原图不保留，重新生成拼图时需重新上传。</p>
+    </div>
+  </div>
+</div>
+
+<input type="file" id="fileInput" multiple accept="image/*" hidden>
+
+<script src="js/util.js"></script>
+<script src="js/api.js"></script>
+<script src="js/pipeline.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
