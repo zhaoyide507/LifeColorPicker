@@ -274,7 +274,7 @@
       <h3 id="keyModalTitle">API Key 设置</h3>
       <button class="modal-close" id="btnKeyClose" type="button" aria-label="关闭">✕</button>
     </div>
-    <p class="modal-desc">Key 仅保存在本浏览器（localStorage），请求由你的浏览器直接发往模型服务商，不会被上传到任何第三方。</p>
+    <p class="modal-desc">Key 仅保存在本浏览器（localStorage），请求发往模型服务商（经本机 server.py 代理转发），不会被上传到任何第三方。</p>
 
     <div class="key-field">
       <label>DeepSeek API Key <span class="req">*</span></label>
@@ -329,7 +329,8 @@
       <li><strong>导出组图</strong> —— 任一作品生成后，即可竖排合成一张组图导出。</li>
     </ol>
     <div class="help-note">
-      <p>🔑 <strong>关于 Key</strong>：不配置任何 Key 也能完成「上传 → 拼图 → 色彩种子 → 本地色板 → 组图导出」；配置后解锁 AI 色板与第肆 / 伍步。Key 仅保存在本浏览器，请求由浏览器直连模型服务商。</p>
+      <p>🔑 <strong>关于 Key</strong>：不配置任何 Key 也能完成「上传 → 拼图 → 色彩种子 → 本地色板 → 组图导出」；配置后解锁 AI 色板与第肆 / 伍步。Key 仅保存在本浏览器，不会上传到任何第三方。</p>
+      <p>📱 <strong>手机访问</strong>：电脑上运行 <code>node server.js</code>（或 <code>python server.py</code>），手机连同一 Wi-Fi 打开 <code>http://电脑IP:7778</code>；请求经本机代理转发，无需担心跨域限制。</p>
       <p>💾 已生成的作品会自动保存在本地，刷新页面不丢失；照片原图不保留，重新生成拼图时需重新上传。</p>
     </div>
   </div>

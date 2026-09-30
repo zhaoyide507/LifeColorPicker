@@ -5,14 +5,122 @@
  */
 "use strict";
 
+/* ── 纯 JS SHA-256 / HMAC 兜底 ──
+ * crypto.subtle 仅在安全上下文（HTTPS / localhost）可用；
+ * 通过 http://局域网IP 等方式打开页面时自动改用这里的纯 JS 实现。 */
+const PureCrypto = (() => {
+  const K = new Uint32Array([
+    0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
+    0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174,
+    0xe49b69c1, 0xefbe4786, 0x0fc19dc6, 0x240ca1cc, 0x2de92c6f, 0x4a7484aa, 0x5cb0a9dc, 0x76f988da,
+    0x983e5152, 0xa831c66d, 0xb00327c8, 0xbf597fc7, 0xc6e00bf3, 0xd5a79147, 0x06ca6351, 0x14292967,
+    0x27b70a85, 0x2e1b2138, 0x4d2c6dfc, 0x53380d13, 0x650a7354, 0x766a0abb, 0x81c2c92e, 0x92722c85,
+    0xa2bfe8a1, 0xa81a664b, 0xc24b8b70, 0xc76c51a3, 0xd192e819, 0xd6990624, 0xf40e3585, 0x106aa070,
+    0x19a4c116, 0x1e376c08, 0x2748774c, 0x34b0bcb5, 0x391c0cb3, 0x4ed8aa4a, 0x5b9cca4f, 0x682e6ff3,
+    0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208, 0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2,
+  ]);
+
+  function hashBytes(bytes) {
+    const H = new Uint32Array([0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a, 0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19]);
+    const len = bytes.length;
+    const withPad = ((len + 9 + 63) >> 6) << 6;
+    const m = new Uint8Array(withPad);
+    m.set(bytes);
+    m[len] = 0x80;
+    const dv = new DataView(m.buffer);
+    dv.setUint32(withPad - 8, Math.floor(len * 8 / 4294967296), false);
+    dv.setUint32(withPad - 4, (len * 8) >>> 0, false);
+    const w = new Uint32Array(64);
+    for (let off = 0; off < withPad; off += 64) {
+      for (let i = 0; i < 16; i++) w[i] = dv.getUint32(off + i * 4, false);
+      for (let i = 16; i < 64; i++) {
+        const s0 = ((w[i - 15] >>> 7) | (w[i - 15] << 25)) ^ ((w[i - 15] >>> 18) | (w[i - 15] << 14)) ^ (w[i - 15] >>> 3);
+        const s1 = ((w[i - 2] >>> 17) | (w[i - 2] << 15)) ^ ((w[i - 2] >>> 19) | (w[i - 2] << 13)) ^ (w[i - 2] >>> 10);
+        w[i] = (w[i - 16] + s0 + w[i - 7] + s1) >>> 0;
+      }
+      let a = H[0], b = H[1], c = H[2], d = H[3], e = H[4], f = H[5], g = H[6], h = H[7];
+      for (let i = 0; i < 64; i++) {
+        const S1 = ((e >>> 6) | (e << 26)) ^ ((e >>> 11) | (e << 21)) ^ ((e >>> 25) | (e << 7));
+        const ch = (e & f) ^ (~e & g);
+        const t1 = (h + S1 + ch + K[i] + w[i]) >>> 0;
+        const S0 = ((a >>> 2) | (a << 30)) ^ ((a >>> 13) | (a << 19)) ^ ((a >>> 22) | (a << 10));
+        const mj = (a & b) ^ (a & c) ^ (b & c);
+        const t2 = (S0 + mj) >>> 0;
+        h = g; g = f; f = e;
+        e = (d + t1) >>> 0;
+        d = c; c = b; b = a;
+        a = (t1 + t2) >>> 0;
+      }
+      H[0] = (H[0] + a) >>> 0; H[1] = (H[1] + b) >>> 0; H[2] = (H[2] + c) >>> 0; H[3] = (H[3] + d) >>> 0;
+      H[4] = (H[4] + e) >>> 0; H[5] = (H[5] + f) >>> 0; H[6] = (H[6] + g) >>> 0; H[7] = (H[7] + h) >>> 0;
+    }
+    const out = new Uint8Array(32);
+    const odv = new DataView(out.buffer);
+    for (let i = 0; i < 8; i++) odv.setUint32(i * 4, H[i], false);
+    return out;
+  }
+
+  function concat(a, b) {
+    const out = new Uint8Array(a.length + b.length);
+    out.set(a); out.set(b, a.length);
+    return out;
+  }
+
+  function hmac(keyBytes, msgBytes) {
+    const BLOCK = 64;
+    let k = keyBytes;
+    if (k.length > BLOCK) k = hashBytes(k);
+    const ipad = new Uint8Array(BLOCK), opad = new Uint8Array(BLOCK);
+    for (let i = 0; i < BLOCK; i++) {
+      const b = k[i] || 0;
+      ipad[i] = b ^ 0x36;
+      opad[i] = b ^ 0x5c;
+    }
+    return hashBytes(concat(opad, hashBytes(concat(ipad, msgBytes))));
+  }
+
+  return { hashBytes, hmac };
+})();
+
 const API = {
+
+  /* 同源代理通道（由 server.py 提供）：http/https 访问页面时优先走代理，
+   * 规避手机等非安全上下文环境的跨域/预检限制；file:// 直开时为 null，浏览器直连。 */
+  _proxy: (location.protocol === "http:" || location.protocol === "https:")
+    ? new URL("proxy/", location.href).href
+    : null,
+
+  /** POST 一段 JSON：优先同源代理，失败自动回退浏览器直连 */
+  async _postJSON(directUrl, proxyUrl, headers, bodyStr) {
+    const attempts = [];
+    if (API._proxy && proxyUrl) attempts.push({ url: proxyUrl, via: "代理" });
+    attempts.push({ url: directUrl, via: "直连" });
+
+    let lastErr = null;
+    for (const a of attempts) {
+      try {
+        const resp = await fetch(a.url, { method: "POST", headers, body: bodyStr });
+        const json = await resp.json().catch(() => ({}));
+        // 代理通道本身不可用（如用旧版 http.server 托管时 404/501）→ 换下一通道
+        if (!resp.ok && resp.status !== 401 && resp.status !== 403 && !json.code && !json.error && !json.ResponseMetadata) {
+          lastErr = new Error("HTTP " + resp.status + "（" + a.via + "）");
+          continue;
+        }
+        return json;
+      } catch (e) {
+        lastErr = e;
+      }
+    }
+    const detail = lastErr && lastErr.message === "Failed to fetch"
+      ? "：设备网络无法访问模型服务商，或请求被拦截。请确认手机可上外网，或改用 `python server.py` 启动本站以走本地代理通道"
+      : (lastErr ? "：" + lastErr.message : "");
+    throw new Error("网络请求失败" + detail);
+  },
 
   /* ═══════════ DeepSeek ═══════════ */
 
   async deepseekChat(keys, content, { maxTokens = 8192, temperature = 0.4, jsonMode = true } = {}) {
     if (!keys.dsKey) throw new Error("请先在右上角「API Key 设置」中填写 DeepSeek API Key");
-    const ctrl = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), 120000);
     const body = {
       model: "deepseek-flash",                    // DeepSeek-V4.1-Flash
       messages: [{ role: "user", content }],
@@ -21,22 +129,16 @@ const API = {
     };
     // JSON 模式要求提示词中包含 "json" 字样，仅提取色板时启用
     if (jsonMode) body.response_format = { type: "json_object" };
-    try {
-      const resp = await fetch("https://api.deepseek.com/chat/completions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "Authorization": "Bearer " + keys.dsKey },
-        signal: ctrl.signal,
-        body: JSON.stringify(body),
-      });
-      const json = await resp.json().catch(() => ({}));
-      if (!resp.ok) {
-        const msg = json.error && json.error.message ? json.error.message : `HTTP ${resp.status}`;
-        throw new Error("DeepSeek 调用失败：" + msg);
-      }
-      return json.choices[0].message.content;
-    } finally {
-      clearTimeout(timer);
-    }
+    const bodyStr = JSON.stringify(body);
+    const headers = { "Content-Type": "application/json", "Authorization": "Bearer " + keys.dsKey };
+    const json = await API._postJSON(
+      "https://api.deepseek.com/chat/completions",
+      API._proxy ? API._proxy + "deepseek" : null,
+      headers,
+      bodyStr,
+    );
+    if (json.error) throw new Error("DeepSeek 调用失败：" + (json.error.message || "未知错误"));
+    return json.choices[0].message.content;
   },
 
   /**
@@ -112,15 +214,28 @@ const API = {
 
   _te: new TextEncoder(),
 
+  /** crypto.subtle 仅存在于安全上下文；不可用时走 PureCrypto 兜底 */
+  _hasSubtle() {
+    return typeof crypto !== "undefined" && !!crypto.subtle;
+  },
+
   async _hmac(keyBytes, msg) {
-    const key = await crypto.subtle.importKey("raw", keyBytes, { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
-    const sig = await crypto.subtle.sign("HMAC", key, API._te.encode(msg));
-    return new Uint8Array(sig);
+    const msgBytes = API._te.encode(msg);
+    if (API._hasSubtle()) {
+      const key = await crypto.subtle.importKey("raw", keyBytes, { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+      const sig = await crypto.subtle.sign("HMAC", key, msgBytes);
+      return new Uint8Array(sig);
+    }
+    return PureCrypto.hmac(keyBytes, msgBytes);
   },
 
   async _sha256Hex(str) {
-    const buf = await crypto.subtle.digest("SHA-256", API._te.encode(str));
-    return API._hex(new Uint8Array(buf));
+    const bytes = API._te.encode(str);
+    if (API._hasSubtle()) {
+      const buf = await crypto.subtle.digest("SHA-256", bytes);
+      return API._hex(new Uint8Array(buf));
+    }
+    return API._hex(PureCrypto.hashBytes(bytes));
   },
 
   _hex(buf) {
@@ -161,12 +276,12 @@ const API = {
   async _volcPost(keys, action, bodyObj) {
     if (!keys.ak || !keys.sk) throw new Error("请先在右上角「API Key 设置」中填写火山引擎 AccessKeyID 与 SecretAccessKey");
     const bodyStr = JSON.stringify(bodyObj);
+    const query = `Action=${action}&Version=2022-08-31`;
     const { url, headers } = await API._volcHeaders(keys, action, bodyStr);
-    const resp = await fetch(url, { method: "POST", headers, body: bodyStr });
-    const json = await resp.json().catch(() => ({}));
+    const json = await API._postJSON(url, API._proxy ? API._proxy + "volcano?" + query : null, headers, bodyStr);
     // 火山以业务码 code=10000 表示成功
     if (json.code !== 10000) {
-      const msg = json.message || (json.ResponseMetadata && json.ResponseMetadata.Error && json.ResponseMetadata.Error.Message) || `HTTP ${resp.status}`;
+      const msg = json.message || (json.ResponseMetadata && json.ResponseMetadata.Error && json.ResponseMetadata.Error.Message) || "未知错误";
       throw new Error("SeedEdit 调用失败：" + msg);
     }
     return json;

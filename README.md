@@ -19,22 +19,30 @@
 
 **结果持久化**：已生成的作品（含校准后的线条种子）会自动存入浏览器 localStorage，刷新页面后直接从任意已完成步骤继续，无需重新生成；照片原图不入库，重新生成拼图时需重新上传。
 
-所有模型调用均由**浏览器直连**服务商接口，无需自建服务器。
+所有模型调用可**浏览器直连**服务商接口；使用本地服务时则经由本机代理转发，手机等受限环境也能正常使用。
 
 ## 🚀 运行
 
-方式一（推荐，任选其一启动本地静态服务）：
+**推荐**（双击 `启动服务.bat`，Node 与 Python 二选一，或在本目录执行）：
 
 ```bash
-# 在项目目录下
-python -m http.server 8000
-# 或
-npx serve .
+node server.js 7778        # Node 版（推荐，零依赖）
+python server.py 7778      # Python 版，功能相同
 ```
 
-然后访问 <http://localhost:8000>。
+- 本机访问：<http://localhost:7778>
+- **手机访问**：手机连同一 Wi-Fi，打开 `http://<电脑IP>:7778`（电脑 IP 用 `ipconfig` 查看）
 
-方式二：直接双击 `index.html` 用浏览器打开（Chrome / Edge 均可）。
+本地服务同时提供**同源代理通道**（`/proxy/deepseek`、`/proxy/volcano`）：页面会优先走该通道转发请求，手机等非安全上下文环境的跨域/预检限制随之消失；代理不可用时自动回退浏览器直连，双保险。
+
+其他方式：
+
+```bash
+python -m http.server 7778   # 仅静态托管（走浏览器直连，手机端可能受限）
+npx serve .                  # 同上
+```
+
+直接双击 `index.html` 打开也可以（Chrome / Edge 直连服务商接口）。
 
 ## 🔑 API Key
 
@@ -47,7 +55,7 @@ npx serve .
 
 **不配置任何 Key 也能使用**：上传 → 拼图 → 色彩种子 → 本地算法色板 → 组图导出（仅含前三步）照常可用；配置后解锁 AI 色板与第肆 / 伍步（届时第肆 / 伍步面板才会显示）。
 
-Key 只保存在你自己浏览器的 localStorage 中，请求由浏览器直接发往 DeepSeek / 火山引擎，不经过任何中间服务器。**请勿把真实 Key 写入代码或提交到仓库。**
+Key 只保存在你自己浏览器的 localStorage 中，请求发往 DeepSeek / 火山引擎（经你本机启动的 server 转发），不经过任何其他中间服务器。**请勿把真实 Key 写入代码或提交到仓库。**
 
 ## 🧩 技术实现
 
@@ -62,9 +70,12 @@ Key 只保存在你自己浏览器的 localStorage 中，请求由浏览器直�
 ```
 采色生活/
 ├── index.html        # 页面结构
+├── server.js         # 本地服务（Node 版）：静态托管 + 同源代理（手机访问 / 跨域兜底）
+├── server.py         # 本地服务（Python 版），与 server.js 功能相同
+├── 启动服务.bat       # Windows 一键启动（优先 Node，无 Node 时用 Python）
 ├── css/style.css     # 样式
 ├── js/util.js        # 通用工具（画布/颜色/导出）
-├── js/api.js         # DeepSeek 与 SeedEdit 3.0 调用
+├── js/api.js         # DeepSeek 与 SeedEdit 3.0 调用（含纯 JS 签名兜底）
 ├── js/pipeline.js    # 拼图/像素化/色板/叠加流水线
 ├── js/app.js         # 界面状态与事件
 ├── 测试用例（16图）/   # 本地测试照片

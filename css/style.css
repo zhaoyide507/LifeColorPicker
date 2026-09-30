@@ -324,6 +324,10 @@ input[type="range"] { width: 100%; accent-color: var(--terra); }
   display: flex; flex-direction: column; gap: 6px;
 }
 .help-note strong { color: var(--ink); }
+.help-note code {
+  font-family: ui-monospace, Consolas, monospace; font-size: 11px;
+  background: #fff; border: 1px solid var(--line); border-radius: 5px; padding: 1px 5px;
+}
 
 /* ── Toast ── */
 #toasts {
